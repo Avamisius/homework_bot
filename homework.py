@@ -5,8 +5,11 @@ import telegram
 import time
 import sys
 
+
 from dotenv import load_dotenv
 from http import HTTPStatus
+
+from exceptions import EmptyResponseFromApiError
 
 load_dotenv()
 
