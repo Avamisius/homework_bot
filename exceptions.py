@@ -1,4 +1,4 @@
-class EmptyResponseFromApiError(Exception):
+class APIError(Exception):
     """Ошибка."""
 
     pass
