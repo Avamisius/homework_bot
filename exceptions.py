@@ -8,3 +8,9 @@ class MessageSendError(Exception):
     """Ошибка."""
 
     pass
+
+
+class MissingEnvError(Exception):
+    """Ошибка."""
+
+    pass

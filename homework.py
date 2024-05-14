@@ -8,7 +8,7 @@ import telegram
 from dotenv import load_dotenv
 from http import HTTPStatus
 
-from exceptions import APIError, MessageSendError
+from exceptions import APIError, MessageSendError, MissingEnvError
 
 ENV_ERROR = 'Отсутствует переменная окружения: {name}'
 MESSAGE_SEND = 'Сообщение отправлено: {message}'
@@ -16,7 +16,8 @@ MESSAGE_SEND_ERROR = ('Не удалось отправить сообщение
                       'Ошибка: {error}')
 API_ERROR = ('Ошибка при выполнении запроса к API. '
              'Cтатус:{status_code}. url:{endpoint},'
-             'headers:{headers}, payload:{payload}, content:{content}')
+             'headers:{headers}, payload:{payload}, code:{code},'
+             'error:{error}')
 CONNECTION_ERROR = ('Сбой в работе программы: {error}. url:{endpoint},'
                     'headers:{headers}, payload:{payload}')
 RESPONSE_TYPE_ERROR = ('Тип ответа API({type})'
@@ -35,6 +36,7 @@ CHANGE_STATUS_MESSAGE = ('Изменился статус проверки ра�
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+ENV_ERROR = 'Пропущены следующие токены:\n{}'
 
 RETRY_PERIOD = 600
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
@@ -59,17 +61,17 @@ logger = logging.getLogger(__name__)
 
 def check_tokens():
     """Проверяет доступность переменных окружения."""
-    error_messages = [
-        f"Ошибка: {token} не найден!" for token in TOKENS if not globals().get(
+    error_tokens = [
+        token for token in TOKENS if not globals().get(
             token
         )
     ]
-    if error_messages:
-        error_message = 'Пропущены следующие токены:\n{}'.format('\n'.join(
-            error_messages
+    if error_tokens:
+        error_message = ENV_ERROR.format('\n'.join(
+            error_tokens
         ))
         logger.critical(error_message)
-        raise EnvironmentError('Недостающие токены')
+        raise MissingEnvError('Недостающие токены')
 
 
 def send_message(bot, message):
@@ -80,9 +82,6 @@ def send_message(bot, message):
             text=message)
         logger.debug(MESSAGE_SEND.format(message=message))
     except Exception as error:
-        logger.exception(MESSAGE_SEND_ERROR.format(
-            error=error, message=message
-        ))
         raise MessageSendError(MESSAGE_SEND_ERROR.format(
             error=error, message=message
         ))
@@ -114,15 +113,11 @@ def get_api_answer(timestamp):
         ))
 
     if 'code' in content or 'error' in content:
-        problematic_key = next(
-            (key for key in ['code', 'error'] if key in content), None
-        )
-        problematic_value = content.get(problematic_key, 'N/A')
         raise APIError(API_ERROR.format(
             status_code=response.status_code,
             endpoint=ENDPOINT, headers=HEADERS,
-            payload=payload, problematic_key=problematic_key,
-            problematic_value=problematic_value
+            payload=payload, code=content.get("code"),
+            error=content.get("error")
         ))
 
     return content
