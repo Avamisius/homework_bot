@@ -16,8 +16,8 @@ MESSAGE_SEND_ERROR = ('Не удалось отправить сообщение
                       'Ошибка: {error}')
 API_ERROR = ('Ошибка при выполнении запроса к API. '
              'Cтатус:{status_code}. url:{endpoint},'
-             'headers:{headers}, payload:{payload}, code:{code},'
-             'error:{error}.{key_name}')
+             'headers:{headers}, payload:{payload},'
+             'data:{data}')
 CONNECTION_ERROR = ('Сбой в работе программы: {error}. url:{endpoint},'
                     'headers:{headers}, payload:{payload}')
 RESPONSE_TYPE_ERROR = ('Тип ответа API({type})'
@@ -113,11 +113,9 @@ def get_api_answer(timestamp):
         raise APIError(API_ERROR.format(
             status_code=response.status_code,
             endpoint=ENDPOINT, headers=HEADERS,
-            payload=payload, code=content.get("code"),
-            error=content.get("error"),
-            key_name="error"
+            payload=payload,
+            data=[f"{key}: {content.get(key)}" for key in ["code", "error"]]
         ))
-
     return content
 
 
