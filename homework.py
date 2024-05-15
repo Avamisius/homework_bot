@@ -2,22 +2,22 @@ import logging
 import os
 import time
 import sys
+from http import HTTPStatus
 
 import requests
 import telegram
 from dotenv import load_dotenv
-from http import HTTPStatus
 
-from exceptions import APIError, MessageSendError, MissingEnvError
+from exceptions import APIError, MessageSendError
 
-ENV_ERROR = 'Отсутствует переменная окружения: {name}'
+ENV_ERROR = 'Отсутствует переменная окружения: {tokens}'
 MESSAGE_SEND = 'Сообщение отправлено: {message}'
 MESSAGE_SEND_ERROR = ('Не удалось отправить сообщение({message}),'
                       'Ошибка: {error}')
 API_ERROR = ('Ошибка при выполнении запроса к API. '
              'Cтатус:{status_code}. url:{endpoint},'
              'headers:{headers}, payload:{payload}, code:{code},'
-             'error:{error}')
+             'error:{error}.{key_name}')
 CONNECTION_ERROR = ('Сбой в работе программы: {error}. url:{endpoint},'
                     'headers:{headers}, payload:{payload}')
 RESPONSE_TYPE_ERROR = ('Тип ответа API({type})'
@@ -36,7 +36,6 @@ CHANGE_STATUS_MESSAGE = ('Изменился статус проверки ра�
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
-ENV_ERROR = 'Пропущены следующие токены:\n{}'
 
 RETRY_PERIOD = 600
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
@@ -67,11 +66,9 @@ def check_tokens():
         )
     ]
     if error_tokens:
-        error_message = ENV_ERROR.format('\n'.join(
-            error_tokens
-        ))
+        error_message = ENV_ERROR.format(tokens=error_tokens)
         logger.critical(error_message)
-        raise MissingEnvError('Недостающие токены')
+        raise EnvironmentError(error_message)
 
 
 def send_message(bot, message):
@@ -117,7 +114,8 @@ def get_api_answer(timestamp):
             status_code=response.status_code,
             endpoint=ENDPOINT, headers=HEADERS,
             payload=payload, code=content.get("code"),
-            error=content.get("error")
+            error=content.get("error"),
+            key_name="error"
         ))
 
     return content
@@ -128,10 +126,8 @@ def check_response(response):
     if not isinstance(response, dict):
         raise TypeError(RESPONSE_TYPE_ERROR.format(type=type(response)))
     if 'homeworks' not in response:
-        raise KeyError(HOMEWORKS_KEY_ERROR.format())
-
+        raise KeyError(HOMEWORKS_KEY_ERROR)
     homeworks = response['homeworks']
-
     if not isinstance(response['homeworks'], list):
         homeworks_type = type(homeworks)
         raise TypeError(HOMEWORKS_TYPE_ERROR.format(
@@ -142,7 +138,7 @@ def check_response(response):
 def parse_status(homework):
     """Извлекает статус работы."""
     if 'homework_name' not in homework:
-        raise KeyError(HOMEWORKS_NAME_KEY_ERROR.format())
+        raise KeyError(HOMEWORKS_NAME_KEY_ERROR)
     status = homework['status']
     if status not in HOMEWORK_VERDICTS.keys():
         raise ValueError(HOMEWORKS_STATUS_ERROR.format())
@@ -162,11 +158,11 @@ def main():
         try:
             response = get_api_answer(timestamp)
             check_response(response)
-            timestamp = response.get('current_date')
             homeworks = response.get('homeworks')
             if homeworks:
                 message = parse_status(homeworks[0])
                 send_message(bot=bot, message=message)
+                timestamp = response.get('current_date', timestamp)
                 last_error_message = None
         except Exception as error:
             message = DEFAULT_ERROR.format(error=error)
