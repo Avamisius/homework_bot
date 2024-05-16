@@ -106,15 +106,15 @@ def get_api_answer(timestamp):
         raise APIError(API_ERROR.format(
             status_code=response.status_code,
             endpoint=ENDPOINT, headers=HEADERS,
-            payload=payload
+            payload=payload, data=None
         ))
-
+    data = [f"{key}: {content.get(key)}" for key in ["code", "error"]]
     if 'code' in content or 'error' in content:
         raise APIError(API_ERROR.format(
             status_code=response.status_code,
             endpoint=ENDPOINT, headers=HEADERS,
             payload=payload,
-            data=[f"{key}: {content.get(key)}" for key in ["code", "error"]]
+            data=data
         ))
     return content
 
