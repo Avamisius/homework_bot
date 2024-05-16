@@ -14,10 +14,13 @@ ENV_ERROR = 'Отсутствует переменная окружения: {to
 MESSAGE_SEND = 'Сообщение отправлено: {message}'
 MESSAGE_SEND_ERROR = ('Не удалось отправить сообщение({message}),'
                       'Ошибка: {error}')
-API_ERROR = ('Ошибка при выполнении запроса к API. '
-             'Cтатус:{status_code}. url:{endpoint},'
-             'headers:{headers}, payload:{payload},'
-             'data:{data}')
+API_SERVICE_ERROR = ('Отказ в обслуживании.'
+                     'Cтатус:{status_code}. url:{endpoint},'
+                     'headers:{headers}, payload:{payload},'
+                     'key_name:{key_name}, key_value:{key_value}')
+API_HTTP_ERROR = ('Ошибка при выполнении запроса к API. '
+                  'Cтатус:{status_code}. url:{endpoint},'
+                  'headers:{headers}, payload:{payload},')
 CONNECTION_ERROR = ('Сбой в работе программы: {error}. url:{endpoint},'
                     'headers:{headers}, payload:{payload}')
 RESPONSE_TYPE_ERROR = ('Тип ответа API({type})'
@@ -103,20 +106,20 @@ def get_api_answer(timestamp):
     content = response.json()
 
     if response.status_code != HTTPStatus.OK:
-        raise APIError(API_ERROR.format(
+        raise APIError(API_HTTP_ERROR.format(
             status_code=response.status_code,
             endpoint=ENDPOINT, headers=HEADERS,
-            payload=payload, data=None
+            payload=payload
         ))
-    data = [f"{key}: {content.get(key)}" for key in ["code", "error"]]
-    if 'code' in content or 'error' in content:
-        raise APIError(API_ERROR.format(
-            status_code=response.status_code,
-            endpoint=ENDPOINT, headers=HEADERS,
-            payload=payload,
-            data=data
-        ))
-    return content
+    for key in ["code", "error"]:
+        if key in content:
+            raise APIError(API_SERVICE_ERROR.format(
+                status_code=response.status_code,
+                endpoint=ENDPOINT, headers=HEADERS,
+                payload=payload, key_name=key,
+                key_value={content.get(key)}
+            ))
+        return content
 
 
 def check_response(response):
